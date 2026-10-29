@@ -1,0 +1,67 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cài XcodeGen
+        run: brew install xcodegen
+
+      - name: Sinh project Xcode
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build (không ký)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project BoxController.xcodeproj \
+            -scheme BoxController \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | tee build.log
+
+      - name: Đóng gói .ipa
+        working-directory: ios
+        run: |
+          APP=$(find build/Build/Products -maxdepth 3 -name "BoxController.app" | head -1)
+          echo "App: $APP"
+          rm -rf Payload BoxController.ipa
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry BoxController.ipa Payload
+          ls -lh BoxController.ipa
+
+      - name: Tải file .ipa lên (tab Actions -> Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: BoxController-ipa
+          path: ios/BoxController.ipa
+
+      - name: Đính kèm vào Release (khi đẩy tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ios/BoxController.ipa
+
+      - name: Lưu log nếu build lỗi
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ios/build.log
