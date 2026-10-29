@@ -7,6 +7,7 @@ struct ContentView: View {
     @AppStorage("pcHost") private var host: String = ""
     @Environment(\.scenePhase) private var scenePhase
     @State private var flash = ""
+    @State private var kDown = false
 
     var body: some View {
         ZStack {
@@ -15,7 +16,7 @@ struct ContentView: View {
                 Text("BOX CONTROLLER")
                     .font(.system(size: 24, weight: .heavy, design: .rounded))
                     .foregroundColor(.white)
-                Text("Vol+  →  S        Vol−  →  W")
+                Text("Vol+  →  W      Vol−  →  S      Chạm ô K  →  K")
                     .font(.system(size: 16, weight: .semibold, design: .monospaced))
                     .foregroundColor(.gray)
 
@@ -51,16 +52,17 @@ struct ContentView: View {
                     .minimumScaleFactor(0.5)
                     .lineLimit(2)
 
+                kPad
+
                 HStack(spacing: 14) {
-                    bigButton(title: "S", sub: "Vol+") { press(up: true) }
-                    bigButton(title: "W", sub: "Vol−") { press(up: false) }
+                    bigButton(title: "W", sub: "Vol+") { press(up: true) }
+                    bigButton(title: "S", sub: "Vol−") { press(up: false) }
                 }
 
-                Text("Để màn hình sáng, rồi bấm nút âm lượng bên hông máy. Hai nút trên màn hình dùng để thử.")
+                Text("Để màn hình sáng, bấm nút âm lượng bên hông máy. Chạm ô K để nhảy. Hai nút W/S trên màn hình dùng để thử.")
                     .font(.footnote)
                     .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
-                Spacer()
             }
             .padding(20)
         }
@@ -78,10 +80,43 @@ struct ContentView: View {
         }
     }
 
+    /// Ô K lớn: gửi ngay khi ngón tay chạm xuống (không đợi nhả)
+    private var kPad: some View {
+        RoundedRectangle(cornerRadius: 20)
+            .fill(kDown ? Color.blue : Color(white: 0.18))
+            .overlay(
+                VStack(spacing: 4) {
+                    Text("K").font(.system(size: 64, weight: .black, design: .rounded))
+                    Text("chạm để nhảy").font(.caption)
+                }
+                .foregroundColor(.white)
+            )
+            .frame(maxWidth: .infinity, minHeight: 140, maxHeight: .infinity)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !kDown else { return }
+                        kDown = true
+                        pressK()
+                    }
+                    .onEnded { _ in kDown = false }
+            )
+    }
+
+    private func pressK() {
+        net.sendK()
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        flash = "K  (nhảy)"
+        let mark = flash
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            if flash == mark { flash = "" }
+        }
+    }
+
     private func press(up: Bool) {
         net.sendButton(up: up)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        flash = up ? "S  (Vol+)" : "W  (Vol−)"
+        flash = up ? "W  (Vol+)" : "S  (Vol−)"
         let mark = flash
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             if flash == mark { flash = "" }

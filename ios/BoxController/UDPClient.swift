@@ -5,6 +5,7 @@ import UIKit
 /// Gửi nút âm lượng tới PC qua UDP (cổng 9876).
 ///   iPhone -> PC : "H"                       chào / giữ kết nối (mỗi 2 giây)
 ///                  "B" + ("U"|"D") + seq     Vol+ / Vol-   (mỗi lần bấm gửi 2 gói, PC bỏ gói trùng theo seq)
+///                  "K" + seq                 chạm ô K trên màn hình (gửi 2 gói, PC bỏ gói trùng trong 0.08s)
 ///   PC -> iPhone : "PONG|ok", "EV|nội dung", "MSG|nội dung"
 final class UDPClient: ObservableObject {
     @Published var connected = false
@@ -83,6 +84,16 @@ final class UDPClient: ObservableObject {
         send(packet)
         queue.asyncAfter(deadline: .now() + 0.012) { [weak self] in
             self?.send(packet)                               // gửi lần 2 phòng rớt gói
+        }
+    }
+
+    /// Chạm ô K trên màn hình -> PC ra phím K
+    func sendK() {
+        seq = seq &+ 1
+        let packet = Data([0x4B, seq])                       // 'K', seq
+        send(packet)
+        queue.asyncAfter(deadline: .now() + 0.012) { [weak self] in
+            self?.send(packet)
         }
     }
 
