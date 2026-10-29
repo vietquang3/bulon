@@ -2,10 +2,10 @@ import Foundation
 import Network
 import UIKit
 
-/// Gửi nút âm lượng tới PC qua UDP (cổng 9876).
+/// Gửi nút âm lượng + joystick tới PC qua UDP (cổng 9876).
 ///   iPhone -> PC : "H"                       chào / giữ kết nối (mỗi 2 giây)
 ///                  "B" + ("U"|"D") + seq     Vol+ / Vol-   (mỗi lần bấm gửi 2 gói, PC bỏ gói trùng theo seq)
-///                  "K" + seq                 chạm ô K trên màn hình (gửi 2 gói, PC bỏ gói trùng trong 0.08s)
+///                  "M" + ("L"|"R"|"N")       joystick trái / phải / thả (gửi lặp mỗi 0.1s khi đang kéo; PC: A / D)
 ///   PC -> iPhone : "PONG|ok", "EV|nội dung", "MSG|nội dung"
 final class UDPClient: ObservableObject {
     @Published var connected = false
@@ -16,6 +16,7 @@ final class UDPClient: ObservableObject {
     private var receiving = false
     private var seq: UInt8 = 0
     private var timer: Timer?
+    private var moveTimer: Timer?
     private var lastRx = Date.distantPast
     private let queue = DispatchQueue(label: "boxcontroller.udp")
 
@@ -57,6 +58,8 @@ final class UDPClient: ObservableObject {
     }
 
     func disconnect() {
+        moveTimer?.invalidate()
+        moveTimer = nil
         timer?.invalidate()
         timer = nil
         connection?.cancel()
@@ -87,14 +90,26 @@ final class UDPClient: ObservableObject {
         }
     }
 
-    /// Chạm ô K trên màn hình -> PC ra phím K
-    func sendK() {
-        seq = seq &+ 1
-        let packet = Data([0x4B, seq])                       // 'K', seq
-        send(packet)
-        queue.asyncAfter(deadline: .now() + 0.012) { [weak self] in
-            self?.send(packet)
+    /// Joystick: dir = -1 kéo trái (PC: A) ; 0 thả cần ; 1 kéo phải (PC: D)
+    /// Khi đang kéo, gửi lặp mỗi 0.1s để PC giữ phím; PC tự nhả nếu mất tín hiệu.
+    func setMove(_ dir: Int) {
+        moveTimer?.invalidate()
+        moveTimer = nil
+        sendMove(dir)
+        if dir == 0 {
+            queue.asyncAfter(deadline: .now() + 0.02) { [weak self] in
+                self?.sendMove(0)                            // gửi lần 2 phòng rớt gói 'thả'
+            }
+        } else {
+            moveTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                self?.sendMove(dir)
+            }
         }
+    }
+
+    private func sendMove(_ dir: Int) {
+        let code: UInt8 = dir < 0 ? 0x4C : (dir > 0 ? 0x52 : 0x4E)   // 'L' / 'R' / 'N'
+        send(Data([0x4D, code]))                                       // 'M' + mã
     }
 
     private func send(_ data: Data) {
