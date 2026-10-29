@@ -24,7 +24,8 @@ targets:
           - audio
         NSLocalNetworkUsageDescription: "Gửi nút âm lượng tới máy tính trong mạng Wi-Fi để điều khiển game."
         UISupportedInterfaceOrientations:
-          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         UIRequiresFullScreen: true
     settings:
       base:
