@@ -11,21 +11,17 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
+      - name: Chọn Xcode mới nhất
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       - name: Cài XcodeGen
         run: brew install xcodegen
-
-      - name: Kiểm tra file trong repo
-        run: |
-          echo "=== ios/ ==="
-          ls -la ios || true
-          echo "=== ios/BoxController/ ==="
-          ls -la ios/BoxController || true
-          echo "=== project.yml ==="
-          cat ios/project.yml || true
 
       - name: Sinh project Xcode
         working-directory: ios
@@ -34,8 +30,8 @@ jobs:
       - name: Liệt kê scheme
         working-directory: ios
         run: |
-          ls -la
-          xcodebuild -list -project BoxController.xcodeproj 2>&1 | tee list.log || true
+          xcodebuild -version
+          xcodebuild -list -project BoxController.xcodeproj 2>&1 | tee list.log
 
       - name: Build (không ký)
         working-directory: ios
