@@ -18,9 +18,24 @@ jobs:
       - name: Cài XcodeGen
         run: brew install xcodegen
 
+      - name: Kiểm tra file trong repo
+        run: |
+          echo "=== ios/ ==="
+          ls -la ios || true
+          echo "=== ios/BoxController/ ==="
+          ls -la ios/BoxController || true
+          echo "=== project.yml ==="
+          cat ios/project.yml || true
+
       - name: Sinh project Xcode
         working-directory: ios
-        run: xcodegen generate
+        run: xcodegen generate 2>&1 | tee xcodegen.log
+
+      - name: Liệt kê scheme
+        working-directory: ios
+        run: |
+          ls -la
+          xcodebuild -list -project BoxController.xcodeproj 2>&1 | tee list.log || true
 
       - name: Build (không ký)
         working-directory: ios
@@ -34,7 +49,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build | tee build.log
+            build 2>&1 | tee build.log
 
       - name: Đóng gói .ipa
         working-directory: ios
@@ -64,4 +79,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-log
-          path: ios/build.log
+          path: |
+            ios/build.log
+            ios/xcodegen.log
+            ios/list.log
